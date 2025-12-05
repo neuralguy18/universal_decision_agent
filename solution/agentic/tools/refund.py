@@ -1,28 +1,37 @@
-# agentic/tools/refund.py
-from typing import Dict, Any
-from ..tools.tools_utils import now_iso
+class RefundTool:
+    def __init__(self, db_session_factory, refund_cap=5000):
+        self.db_session_factory = db_session_factory
+        self.refund_cap = refund_cap
 
-REFUND_CAP = 5000.0
+    def call(self, user_id: str, amount: float):
+        if amount <= 0:
+            return {"status": "error", "message": "Refund amount must be greater than zero."}
 
-def validate_params(params: Dict[str, Any]) -> Dict[str, Any]:
-    required = ["user_id","order_id","amount"]
-    missing = [p for p in required if p not in params or params[p] is None]
-    if missing:
-        return {"ok": False, "error": f"missing_params: {missing}"}
-    try:
-        amount = float(params["amount"])
-    except Exception:
-        return {"ok": False, "error": "invalid_amount"}
-    if amount > REFUND_CAP:
-        return {"ok": False, "error": "amount_above_limit", "allowed_max": REFUND_CAP}
-    return {"ok": True}
+        if amount > self.refund_cap:
+            return {
+                "status": "error",
+                "message": f"Refund amount exceeds cap of ₹{self.refund_cap}."
+            }
 
-def call(params: Dict[str, Any], dry_run: bool = True) -> Dict[str, Any]:
-    v = validate_params(params)
-    if not v["ok"]:
-        return {"success": False, "error": v.get("error")}
-    if dry_run:
-        return {"success": True, "dry_run": True, "sim_tx": {"tx_id": f"sim-{params['order_id']}", "amount": params["amount"], "ts": now_iso()}}
-    # Replace with real API call to payment/refund service
-    tx = {"tx_id": f"tx-{params['order_id']}", "amount": params["amount"], "processed_at": now_iso()}
-    return {"success": True, "dry_run": False, "result": tx}
+        with self.db_session_factory() as session:
+            account = session.query(Account).filter_by(user_id=user_id).first()
+
+            if not account:
+                return {"status": "error", "message": "Account not found."}
+
+            try:
+                account.balance += amount
+                session.commit()
+
+                return {
+                    "status": "success",
+                    "message": f"₹{amount} refunded.",
+                    "new_balance": account.balance
+                }
+
+            except Exception as e:
+                session.rollback()
+                return {
+                    "status": "error",
+                    "message": f"Refund failed: {str(e)}"
+                }

@@ -1,18 +1,35 @@
-# agentic/tools/account_lookup.py
-from typing import Dict, Any
-from ..tools.tools_utils import now_iso
+from sqlalchemy.orm import Session
+from models import User, Account  # your earlier ORM models
 
-FAKE_DB = {
-    "user_abc": {"email":"alice@example.com", "address":"Old Address 12", "orders":["ORDER123","ORDER456"] }
-}
+class AccountLookupTool:
+    def __init__(self, db_session_factory):
+        self.db_session_factory = db_session_factory
 
-def get_account(user_id: str) -> Dict[str, Any]:
-    return FAKE_DB.get(user_id, {})
+    def call(self, user_id: str):
+        """Look up account info from real database."""
+        with self.db_session_factory() as session:
+            user = session.query(User).filter_by(user_id=user_id).first()
 
-def update_account(user_id: str, updates: Dict[str, Any]) -> Dict[str, Any]:
-    acct = FAKE_DB.get(user_id)
-    if not acct:
-        return {"success": False, "error": "user_not_found"}
-    acct.update(updates)
-    acct["updated_at"] = now_iso()
-    return {"success": True, "account": acct}
+            if not user:
+                return {
+                    "status": "error",
+                    "message": f"User with ID {user_id} not found."
+                }
+
+            account = session.query(Account).filter_by(user_id=user_id).first()
+
+            if not account:
+                return {
+                    "status": "error",
+                    "message": f"Account record missing for user {user_id}."
+                }
+
+            return {
+                "status": "success",
+                "user_id": user.user_id,
+                "name": user.name,
+                "email": user.email,
+                "balance": account.balance,
+                "membership": account.membership_type,
+                "updated_at": account.updated_at.isoformat()
+            }

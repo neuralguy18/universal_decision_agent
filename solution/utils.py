@@ -67,27 +67,36 @@ def model_to_dict(instance):
         for column in instance.__table__.columns
     }
 
-def chat_interface(agent:CompiledStateGraph, ticket_id:str):
-    is_first_iteration = False
-    messages = [SystemMessage(content = f"ThreadId: {ticket_id}")]
+from typing import Callable
+
+def chat_interface(orchestrator_func: Callable, ticket_id: str):
+    """
+    Interactive chat interface for a ticket.
+    Directly uses the orchestrator function.
+    """
+    print(f"Starting chat for Thread ID: {ticket_id}")
+    
     while True:
         user_input = input("User: ")
-        print("User:", user_input)
         if user_input.lower() in ["quit", "exit", "q"]:
             print("Assistant: Goodbye!")
             break
-        messages = [HumanMessage(content=user_input)]
-        if is_first_iteration:
-            messages.append(HumanMessage(content=user_input))
-        trigger = {
-            "messages": messages
+
+        # Create a ticket dict as expected by orchestrator
+        ticket = {
+            "ticket_id": ticket_id,
+            "text": user_input,
+            "user_id": "user_1",
+            "platform": "chat",
+            "metadata": {"thread_id": ticket_id},
+            "attachments": [],
         }
-        config = {
-            "configurable": {
-                "thread_id": ticket_id,
-            }
-        }
-        
-        result = agent.invoke(input=trigger, config=config)
-        print("Assistant:", result["messages"][-1].content)
-        is_first_iteration = False
+
+        # Call orchestrator directly
+        result = orchestrator_func(ticket, session_id=ticket_id)
+
+        # Print assistant's response
+        resolver_out = result.get("resolver") or {}
+        assistant_text = resolver_out.get("response") or resolver_out.get("message") or "No response generated."
+        print("Assistant:", assistant_text)
+
