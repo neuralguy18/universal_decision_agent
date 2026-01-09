@@ -67,22 +67,20 @@ def model_to_dict(instance):
         for column in instance.__table__.columns
     }
 
-from typing import Callable
+from typing import Callable, Optional, List
 
-def chat_interface(orchestrator_func: Callable, ticket_id: str):
+def chat_interface(orchestrator_func: Callable, ticket_id: str, prompts: Optional[List[str]] = None):
     """
-    Interactive chat interface for a ticket.
-    Directly uses the orchestrator function.
+    Chat interface for a ticket. By default runs interactively using `input()`.
+
+    If `prompts` is provided (a list of strings), the function will run non-interactively
+    by sending each prompt to the `orchestrator_func` in order and printing responses.
+
+    This makes it safe to use in notebooks and CI where stdin may not be available.
     """
     print(f"Starting chat for Thread ID: {ticket_id}")
-    
-    while True:
-        user_input = input("User: ")
-        if user_input.lower() in ["quit", "exit", "q"]:
-            print("Assistant: Goodbye!")
-            break
 
-        # Create a ticket dict as expected by orchestrator
+    def _run_turn(user_input: str):
         ticket = {
             "ticket_id": ticket_id,
             "text": user_input,
@@ -91,12 +89,33 @@ def chat_interface(orchestrator_func: Callable, ticket_id: str):
             "metadata": {"thread_id": ticket_id},
             "attachments": [],
         }
-
-        # Call orchestrator directly
         result = orchestrator_func(ticket, session_id=ticket_id)
-
-        # Print assistant's response
         resolver_out = result.get("resolver") or {}
         assistant_text = resolver_out.get("response") or resolver_out.get("message") or "No response generated."
         print("Assistant:", assistant_text)
+
+    # Non-interactive mode for notebooks/tests
+    if prompts is not None:
+        for p in prompts:
+            if p.lower() in ["quit", "exit", "q"]:
+                print("Assistant: Goodbye!")
+                break
+            print("User:", p)
+            _run_turn(p)
+        return
+
+    # Interactive mode (fallback)
+    while True:
+        try:
+            user_input = input("User: ")
+        except EOFError:
+            # Some notebook frontends don't support stdin; exit gracefully
+            print("Assistant: stdin not available — exiting interactive chat.")
+            break
+
+        if user_input.lower() in ["quit", "exit", "q"]:
+            print("Assistant: Goodbye!")
+            break
+
+        _run_turn(user_input)
 

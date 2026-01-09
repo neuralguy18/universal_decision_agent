@@ -61,3 +61,36 @@ class MemoryRepository:
                 hits.append((r, score))
         hits.sort(key=lambda x: x[1], reverse=True)
         return hits[:top_k]
+
+    # Ticket messages (store conversational messages associated with a session/ticket)
+    def put_ticket_message(self, session_id: str = None, ticket_id: str = None, from_role: str = "user", text: str = "", metadata: dict = None):
+        with Session(self.engine) as s:
+            payload = {"role": from_role, "text": text, "metadata": metadata or {}, "ticket_id": ticket_id, "created_at": now_iso()}
+            row = ShortTermMemory(session_id=session_id or "", ticket_id=ticket_id, payload_json=payload)
+            s.add(row)
+            s.commit()
+            return row
+
+    def get_ticket_messages(self, session_id: str = None, user_id: str = None, ticket_id: str = None, limit: int = 50):
+        results = []
+        with Session(self.engine) as s:
+            stmt = select(ShortTermMemory)
+            if session_id:
+                stmt = stmt.where(ShortTermMemory.session_id == session_id)
+            elif ticket_id:
+                stmt = stmt.where(ShortTermMemory.ticket_id == ticket_id)
+            # order oldest first
+            stmt = stmt.order_by(ShortTermMemory.created_at.asc()).limit(limit)
+            rows = [r[0] for r in s.execute(stmt).all()]
+            for r in rows:
+                results.append(r.payload_json if hasattr(r, "payload_json") else {})
+
+        # If no session/ticket messages and user_id provided, try returning LTM entries as historical messages
+        if not results and user_id:
+            with Session(self.engine) as s:
+                stmt2 = select(LongTermMemory).where(LongTermMemory.user_id == user_id).order_by(LongTermMemory.created_at.desc()).limit(limit)
+                rows2 = [r[0] for r in s.execute(stmt2).all()]
+                for r in rows2:
+                    results.append({"role": "ltm", "text": getattr(r, "text", ""), "metadata": getattr(r, "metadata_json", {})})
+
+        return results

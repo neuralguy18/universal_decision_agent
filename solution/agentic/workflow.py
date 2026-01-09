@@ -20,7 +20,7 @@ import os
 from dotenv import load_dotenv
 
 # Import LLM
-from langchain_openai import OpenAI
+from langchain_openai import ChatOpenAI
 
 load_dotenv()
 
@@ -45,7 +45,7 @@ class WorkflowState(TypedDict, total=False):
 # 2. INITIALIZE AGENTS & MEMORY (with LLM for Resolver)
 # ---------------------------------------------------------------------
 # --- LLM import & initialization: version-safe ---
-llm = OpenAI(
+llm = ChatOpenAI(
     model_name=os.environ.get("LLM_MODEL", "gpt-3.5-turbo"),
     temperature=float(os.environ.get("LLM_TEMP", 0))
 )
@@ -61,6 +61,7 @@ else:
 supervisor = Supervisor(auto_threshold=float(os.environ.get("DEFAULT_CONFIDENCE_THRESHOLD", 0.75)))
 escalation_agent = Escalation()
 auditor = Auditor()
+memory_repo = MemoryRepository()
 
 
 # ---------------------------------------------------------------------
@@ -351,10 +352,19 @@ workflow = graph.compile(checkpointer=MemorySaver())
 # ---------------------------------------------------------------------
 def orchestrator(ticket: Dict[str, Any], session_id: str = None) -> Dict[str, Any]:
     initial_state: WorkflowState = {"ticket": ticket}
+
     if session_id:
         initial_state["session_id"] = session_id
 
-    result_state = workflow.invoke(initial_state)
+    result_state = workflow.invoke(
+        initial_state,
+        config={
+            "configurable": {
+                "thread_id": session_id
+            }
+        }
+    )
+
     return {
         "ticket": ticket,
         "classifier": result_state.get("classifier_output"),

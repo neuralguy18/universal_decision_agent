@@ -12,7 +12,14 @@ from ..memory.memory_repo import MemoryRepository
 from pathlib import Path
 import os
 
-KB_DIR = Path(__file__).resolve().parents[2] / "data" / "external" / "kb"
+# FIXED: Reliable path to KB folder - use absolute path from solution directory
+_CURRENT_FILE = Path(__file__).resolve()
+_SOLUTION_DIR = _CURRENT_FILE.parent.parent.parent  # Navigate up from agentic/agents to solution
+KB_DIR = _SOLUTION_DIR / "data" / "external" / "kb"
+
+# Debug line — keep for now, remove later
+print(f"KB Directory: {KB_DIR}")
+print(f"KB Files: {list(KB_DIR.glob('**/*.txt')) if KB_DIR.exists() else 'KB directory does not exist'}")
 
 class Retriever:
     def __init__(self, memory_repo: MemoryRepository = None, top_k: int = 5):
