@@ -40,7 +40,7 @@ This project showcases production-grade agentic patterns: stateful orchestration
 
 
 ## Example Interaction
-
+'''
 ticket = {
     "ticket_id": "tkt_001",
     "platform": "email",
@@ -51,10 +51,10 @@ ticket = {
 }
 
 result = orchestrator(ticket, session_id="thread_1", dry_run=True)
-
+'''
 
 ### Sample output (dry run)
-
+'''
 {
   "classification": {"category": "refund", "recommended_tools": ["process_refund"]},
   "resolution": "Eligible for full refund per policy",
@@ -62,6 +62,7 @@ result = orchestrator(ticket, session_id="thread_1", dry_run=True)
   "tools_executed": ["process_refund (simulated)"],
   "audit": "Refund approved – policy matched, no prior refunds, urgency high"
 }
+'''
 
 ## Tech Stack
 
@@ -72,7 +73,7 @@ result = orchestrator(ticket, session_id="thread_1", dry_run=True)
   - **Streamlit** : Interaction for users
 
 ## Project Structure
-
+'''
 uda-hub/
 ├── agentic/
 │   ├── agents/          # Classifier, Resolver, Supervisor, Escalation, Auditor
@@ -90,24 +91,33 @@ uda-hub/
 ├── requirements.txt
 ├── .env.example
 └── README.md
+'''
 
 ## Setup & Quick Start
 
 **1.Clone the repository**
+'''
 git clone https://github.com/yourusername/uda-hub.git
 cd uda-hub/solution
+'''
 
 **2.Install dependencies**
+'''
 pip install -r requirements.txt
+'''
 
 **3.Set Environment variables**
+'''
 MEMORY_DB_URL=sqlite:///./data/core/udahub.db
 DEFAULT_CONFIDENCE_THRESHOLD=0.75
 OPENAI_API_KEY=your_key
+'''
 
 **4.Launch UI**
+'''
 cd solution
 streamlit run app.py
+'''
 
 
 The Streamlit app opens at `http://localhost:8501` — start chatting!
@@ -118,7 +128,9 @@ Then type support requests like:
 
 
 **5.Programmatic use**
+'''
 from agentic.workflow import orchestrator
+'''
 
 
 ## Future Enhancements (Roadmap Ideas)
